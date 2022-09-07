@@ -2,7 +2,7 @@
 See LICENSE folder for this sample’s licensing information.
 
 Abstract:
-Demonstrates the audio APIs used to capture audio data from the microphone and play it out to the speaker. It also demonstrates how to play system sounds. (Borrowed from aurioTouch sample code.)
+The logic for VOIP call audio sessions.
 */
 
 #import "AudioController.h"
@@ -14,43 +14,8 @@ Demonstrates the audio APIs used to capture audio data from the microphone and p
 #import "CAXException.h"
 #import "CAStreamBasicDescription.h"
 
-struct CallbackData {
-    AudioUnit               rioUnit;
-    BOOL*                   muteAudio;
-    BOOL*                   audioChainIsBeingReconstructed;
-
-    CallbackData(): rioUnit(NULL), muteAudio(NULL), audioChainIsBeingReconstructed(NULL) {}
-} cd;
-
-// Render callback function
-static OSStatus	performRender (void *inRefCon,
-                               AudioUnitRenderActionFlags *ioActionFlags,
-                               const AudioTimeStamp *inTimeStamp,
-                               UInt32 inBusNumber,
-                               UInt32 inNumberFrames,
-                               AudioBufferList *ioData)
-{
-    OSStatus err = noErr;
-
-    if (*cd.audioChainIsBeingReconstructed == NO) {
-        /*
-         Call AudioUnitRender on the input bus of Apple Voice Processing IO to
-         store the audio data captured by the microphone in ioData.
-         */
-        err = AudioUnitRender(cd.rioUnit, ioActionFlags, inTimeStamp, 1, inNumberFrames, ioData);
-
-        // Mute audio if needed.
-        if (*cd.muteAudio) {
-            for (UInt32 i=0; i<ioData->mNumberBuffers; ++i)
-                memset(ioData->mBuffers[i].mData, 0, ioData->mBuffers[i].mDataByteSize);
-        }
-    }
-
-    return err;
-}
-
 @interface AudioController () {
-    AudioUnit _rioUnit;
+    AVAudioEngine *_engine;
     BOOL _audioChainIsBeingReconstructed;
 }
 
@@ -67,7 +32,6 @@ static OSStatus	performRender (void *inRefCon,
 - (id)init
 {
     if (self = [super init]) {
-        _muteAudio = YES;
         [self setupAudioChain];
     }
     return self;
@@ -161,6 +125,7 @@ static OSStatus	performRender (void *inRefCon,
         [sessionInstance setMode:AVAudioSessionModeVoiceChat error:&error];
         XThrowIfError((OSStatus)error.code, "Couldn't set session's audio mode");
 
+#if TARGET_OS_IOS
         // Set the buffer duration to 5 ms.
         NSTimeInterval bufferDuration = .005;
         [sessionInstance setPreferredIOBufferDuration:bufferDuration error:&error];
@@ -169,6 +134,7 @@ static OSStatus	performRender (void *inRefCon,
         // Set the session's sample rate.
         [sessionInstance setPreferredSampleRate:44100 error:&error];
         XThrowIfError((OSStatus)error.code, "Couldn't set session's preferred sample rate");
+#endif
 
         // Add interruption handler.
         [[NSNotificationCenter defaultCenter] addObserver:self
@@ -201,76 +167,13 @@ static OSStatus	performRender (void *inRefCon,
 
 - (void)setupIOUnit
 {
-    try {
-        // Create a new instance of Apple Voice Processing IO.
+    AVAudioFormat *format = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:44100 channels:1];
+    NSError *error;
+    _engine = [[AVAudioEngine alloc] init];
+    [_engine.inputNode setVoiceProcessingEnabled:YES error:&error];
+    [_engine connect:_engine.inputNode to:_engine.outputNode format:format];
+    [_engine prepare];
 
-        AudioComponentDescription desc;
-        desc.componentType = kAudioUnitType_Output;
-        desc.componentSubType = kAudioUnitSubType_VoiceProcessingIO;
-        desc.componentManufacturer = kAudioUnitManufacturer_Apple;
-        desc.componentFlags = 0;
-        desc.componentFlagsMask = 0;
-
-        AudioComponent comp = AudioComponentFindNext(NULL, &desc);
-        XThrowIfError(AudioComponentInstanceNew(comp, &_rioUnit), "Couldn't create a new instance of Apple Voice Processing IO");
-
-        /*
-         Enable input and output on Apple Voice Processing IO.
-         Input is enabled on the input scope of the input element
-         Output is enabled on the output scope of the output element
-         */
-
-        UInt32 one = 1;
-        XThrowIfError(AudioUnitSetProperty(_rioUnit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &one, sizeof(one)), "Couldn't enable input on Apple Voice Processing IO");
-        XThrowIfError(AudioUnitSetProperty(_rioUnit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &one, sizeof(one)), "Couldn't enable output on Apple Voice Processing IO");
-
-        /*
-         Explicitly set the input and output client formats.
-         sample rate = 44100, num channels = 1, format = 32-bit floating point
-         */
-
-        CAStreamBasicDescription ioFormat = CAStreamBasicDescription(44100, 1, CAStreamBasicDescription::kPCMFormatFloat32, false);
-        XThrowIfError(AudioUnitSetProperty(_rioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &ioFormat, sizeof(ioFormat)), "Couldn't set the input client format on Apple Voice Processing IO");
-        XThrowIfError(AudioUnitSetProperty(_rioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &ioFormat, sizeof(ioFormat)), "Couldn't set the output client format on Apple Voice Processing IO");
-
-        /*
-         Set the MaximumFramesPerSlice property. This property is used to describe to an audio unit the
-         maximum number of samples it will be asked to produce on any single given call to AudioUnitRender
-         */
-        UInt32 maxFramesPerSlice = 4096;
-        XThrowIfError(AudioUnitSetProperty(_rioUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFramesPerSlice, sizeof(UInt32)), "Couldn't set max frames per slice on Apple Voice Processing IO");
-
-        // Get the property value back from Apple Voice Processing IO. This value is used to allocate buffers accordingly.
-        UInt32 propSize = sizeof(UInt32);
-        XThrowIfError(AudioUnitGetProperty(_rioUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFramesPerSlice, &propSize), "Couldn't get max frames per slice on Apple Voice Processing IO");
-
-        /*
-         References to certain data are needed in the render callback.
-         This simple struct is used to hold that information.
-         */
-
-        cd.rioUnit = _rioUnit;
-        cd.muteAudio = &_muteAudio;
-        cd.audioChainIsBeingReconstructed = &_audioChainIsBeingReconstructed;
-
-        // Set the render callback on Apple Voice Processing IO.
-        AURenderCallbackStruct renderCallback;
-        renderCallback.inputProc = performRender;
-        renderCallback.inputProcRefCon = NULL;
-        XThrowIfError(AudioUnitSetProperty(_rioUnit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &renderCallback, sizeof(renderCallback)), "Couldn't set render callback on Apple Voice Processing IO");
-
-        // Initialize the Apple Voice Processing IO instance
-        XThrowIfError(AudioUnitInitialize(_rioUnit), "Couldn't initialize Apple Voice Processing IO instance");
-    }
-
-    catch (CAXException &e) {
-        NSLog(@"Error returned from setupIOUnit: %d: %s", (int)e.mError, e.mOperation);
-    }
-    catch (...) {
-        NSLog(@"Unknown error returned from setupIOUnit");
-    }
-
-    return;
 }
 
 - (void)setupAudioChain
@@ -279,28 +182,22 @@ static OSStatus	performRender (void *inRefCon,
     [self setupIOUnit];
 }
 
-- (OSStatus)startIOUnit
+- (BOOL)startIOUnit
 {
-    OSStatus err = AudioOutputUnitStart(_rioUnit);
-    if (err) NSLog(@"Couldn't start Apple Voice Processing IO: %d", (int)err);
-    return err;
+    NSError *error;
+    [_engine startAndReturnError:&error];
+    if (error) NSLog(@"Couldn't start Apple Voice Processing IO: %@", error);
+    return NO;
 }
 
-- (OSStatus)stopIOUnit
+- (void)stopIOUnit
 {
-    OSStatus err = AudioOutputUnitStop(_rioUnit);
-    if (err) NSLog(@"Couldn't stop Apple Voice Processing IO: %d", (int)err);
-    return err;
+    [_engine stop];
 }
 
 - (BOOL)audioChainIsBeingReconstructed
 {
     return _audioChainIsBeingReconstructed;
-}
-
-- (void)dealloc
-{
-    [super dealloc];
 }
 
 @end

@@ -44,6 +44,12 @@ final class SpeakerboxCall: ObservableObject {
         }
     }
 
+    @Published var isMuted = false {
+        didSet {
+            stateDidChange?()
+        }
+    }
+
     // MARK: - State Change Callbacks
 
     var stateDidChange: (() -> Void)?

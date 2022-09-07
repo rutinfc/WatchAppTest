@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E7FF8F2023E8E27A0073AF6B"
-               BuildableName = "Speakerbox.app"
-               BlueprintName = "Speakerbox"
+               BlueprintIdentifier = "BB1813A42702382D0091D1DE"
+               BuildableName = "Speakerbox-Watch.app"
+               BlueprintName = "Speakerbox-Watch"
                ReferencedContainer = "container:Speakerbox.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -44,9 +44,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E7FF8F2023E8E27A0073AF6B"
-            BuildableName = "Speakerbox.app"
-            BlueprintName = "Speakerbox"
+            BlueprintIdentifier = "BB1813A42702382D0091D1DE"
+            BuildableName = "Speakerbox-Watch.app"
+            BlueprintName = "Speakerbox-Watch"
             ReferencedContainer = "container:Speakerbox.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -61,9 +61,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E7FF8F2023E8E27A0073AF6B"
-            BuildableName = "Speakerbox.app"
-            BlueprintName = "Speakerbox"
+            BlueprintIdentifier = "BB1813A42702382D0091D1DE"
+            BuildableName = "Speakerbox-Watch.app"
+            BlueprintName = "Speakerbox-Watch"
             ReferencedContainer = "container:Speakerbox.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

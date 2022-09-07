@@ -2,25 +2,27 @@
 See LICENSE folder for this sample’s licensing information.
 
 Abstract:
-The CallKit provider delegate, which conforms to CXProviderDelegate protocol.
+CallKit provider delegate class, which conforms to CXProviderDelegate protocol
 */
 
 import Foundation
 import UIKit
+import AVFoundation
 import CallKit
 
-final class ProviderDelegate: NSObject {
+final class ProviderDelegate: NSObject, ObservableObject {
 
-    /// The app's provider configuration, representing its CallKit capabilities.
+    /// The app's provider configuration, representing its CallKit capabilities
     static let providerConfiguration: CXProviderConfiguration = {
-        let localizedName = NSLocalizedString("APPLICATION_NAME", comment: "Name of application")
-        let providerConfiguration = CXProviderConfiguration(localizedName: localizedName)
+        let providerConfiguration = CXProviderConfiguration()
 
         // Prevents multiple calls from being grouped.
         providerConfiguration.maximumCallsPerCallGroup = 1
         
-        providerConfiguration.supportsVideo = true
+        providerConfiguration.supportsVideo = false
+        
         providerConfiguration.supportedHandleTypes = [.phoneNumber]
+        
         providerConfiguration.ringtoneSound = "Ringtone.aif"
 
         let iconMaskImage = #imageLiteral(resourceName: "IconMask")
@@ -43,19 +45,19 @@ final class ProviderDelegate: NSObject {
 
     // MARK: - Handle Incoming Calls
 
-    /// Use CXProvider to report the incoming call to the system.
+    /// Use CXProvider to report the incoming call to the system
     /// - Parameters:
-    ///   - uuid: The unique identifier of the call.
-    ///   - handle: The handle for the caller.
-    ///   - hasVideo: If `true`, the call can include video.
-    ///   - completion: A closure that is executed once the call is allowed or disallowed by the system.
+    ///   - uuid: The unique identifier of the call
+    ///   - handle: The handle for the caller
+    ///   - hasVideo: If `true`, the call can include video
+    ///   - completion: A closure that is executed once the call is allowed or disallowed by the system
     func reportIncomingCall(uuid: UUID, handle: String, hasVideo: Bool = false, completion: ((Error?) -> Void)? = nil) {
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.remoteHandle = CXHandle(type: .phoneNumber, value: handle)
         update.hasVideo = hasVideo
 
-        // Report the incoming call to the system.
+        // Report the incoming call to the system
         provider.reportNewIncomingCall(with: uuid, update: update) { error in
             /*
              Only add an incoming call to an app's list of calls if it's allowed, i.e., there is no error.
@@ -71,11 +73,9 @@ final class ProviderDelegate: NSObject {
             completion?(error)
         }
     }
-
 }
 
 // MARK: - CXProviderDelegate
-
 extension ProviderDelegate: CXProviderDelegate {
 
     func providerDidReset(_ provider: CXProvider) {
@@ -114,7 +114,7 @@ extension ProviderDelegate: CXProviderDelegate {
         call.hasStartedConnectingDidChange = { [weak self] in
             self?.provider.reportOutgoingCall(with: call.uuid, startedConnectingAt: call.connectingDate)
         }
-        call.hasConnectedDidChange = { [weak self] in
+        call.hasConnectedDidChange = {[weak self] in
             self?.provider.reportOutgoingCall(with: call.uuid, connectedAt: call.connectDate)
         }
 
@@ -186,12 +186,25 @@ extension ProviderDelegate: CXProviderDelegate {
 
         // Stop or start audio in response to holding or unholding the call.
         if call.isOnHold {
+            
             stopAudio()
         } else {
             startAudio()
         }
 
         // Signal to the system that the action has been successfully performed.
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+        // Retrieve the SpeakerboxCall instance corresponding to the action's call UUID
+        guard let call = callManager.callWithUUID(uuid: action.callUUID) else {
+            action.fail()
+            return
+        }
+
+        call.isMuted = action.isMuted
+
         action.fulfill()
     }
 
@@ -219,5 +232,4 @@ extension ProviderDelegate: CXProviderDelegate {
          after having its priority restored to normal.
          */
     }
-
 }

@@ -2,7 +2,7 @@
 See LICENSE folder for this sample’s licensing information.
 
 Abstract:
-Provides call audio management helper functions.
+High-level call audio management functions
 */
 
 import Foundation
@@ -20,17 +20,11 @@ func configureAudioSession() {
 func startAudio() {
     print("Starting audio")
 
-    if audioController?.startIOUnit() == kAudioServicesNoError {
-        audioController?.muteAudio = false
-    } else {
-        // Handle error.
-    }
+    audioController?.startIOUnit()
 }
 
 func stopAudio() {
     print("Stopping audio")
 
-    if audioController?.stopIOUnit() != kAudioServicesNoError {
-        // Handle error.
-    }
+    audioController?.stopIOUnit()
 }

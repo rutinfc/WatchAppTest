@@ -49,12 +49,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return false
         }
 
-        guard let video = userActivity.video else {
+        guard let isVideo = userActivity.isVideo else {
             print("Could not determine video from user activity: \(userActivity)")
             return false
         }
 
-        callManager.startCall(handle: handle, video: video)
+        callManager.startCall(handle: handle, video: isVideo)
         return true
     }
 

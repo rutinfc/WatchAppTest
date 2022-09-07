@@ -28,11 +28,12 @@ public:
 		if (isprint(str[1]) && isprint(str[2]) && isprint(str[3]) && isprint(str[4])) {
 			str[0] = str[5] = '\'';
 			str[6] = '\0';
-		} else if (error > -200000 && error < 200000)
+        } else if (error > -200000 && error < 200000) {
 			// No, format it as an integer.
-			sprintf(str, "%d", (int)error);
-		else
-			sprintf(str, "0x%x", (int)error);
+            snprintf(str, 16, "%d", (int)error);
+        } else {
+            snprintf(str, 16, "0x%x", (int)error);
+        }
 	}
 	const char *get() const { return mStr; }
 	operator const char *() const { return mStr; }
