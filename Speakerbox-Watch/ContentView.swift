@@ -9,22 +9,29 @@ import SwiftUI
 
 struct ContentView: View {
     
+    var token: String = ""
     var incomingCallback : (_ : String, _ : Bool) -> Void
         
     var body: some View {
         
-        Button("Incoming Call") {
-            print("Pressed Incoming Call")
-            incomingCallback("1234567890", false)
+        ScrollView {
+            VStack {
+                
+                Button("Incoming Call") {
+                    print("Pressed Incoming Call")
+                    incomingCallback("1234567890", false)
+                }
+                
+                .padding()
+                
+                Button("Outgoing Call") {
+                    print("Pressed Outgoing Call")
+                                
+                    SpeakerboxCallManager().startCall(handle: "1234567890", video: false)
+                }
+            }
         }
         
-        .padding()
-        
-        Button("Outgoing Call") {
-            print("Pressed Outgoing Call")
-                        
-            SpeakerboxCallManager().startCall(handle: "1234567890", video: false)
-        }
     }
 }
 

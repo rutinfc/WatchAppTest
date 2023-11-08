@@ -58,17 +58,22 @@ final class ProviderDelegate: NSObject, ObservableObject {
         update.hasVideo = hasVideo
 
         // Report the incoming call to the system
-        provider.reportNewIncomingCall(with: uuid, update: update) { error in
+        provider.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
             /*
              Only add an incoming call to an app's list of calls if it's allowed, i.e., there is no error.
              Calls may be denied for various legitimate reasons. See CXErrorCodeIncomingCallError.
              */
+            guard let self else {
+                return
+            }
             if error == nil {
                 let call = SpeakerboxCall(uuid: uuid)
                 call.handle = handle
 
                 self.callManager.addCall(call)
             }
+            
+            provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
 
             completion?(error)
         }

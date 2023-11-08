@@ -8,10 +8,16 @@ Main handler for PushKit events
 import Foundation
 import CallKit
 import PushKit
+import Combine
 
 class PushRegistryDelegate: NSObject {
-    private let pushRegistry = PKPushRegistry(queue: DispatchQueue.main)
+    private let queue = DispatchSerialQueue(label: "VOIP-Queue")
+    private lazy var pushRegistry = {
+        PKPushRegistry(queue: self.queue)
+    }()
     weak var providerDelegate: ProviderDelegate?
+    
+    var pushTokenPublisher = CurrentValueSubject<String, Never>("")
     
     init(providerDelegate: ProviderDelegate) {
         self.providerDelegate = providerDelegate
@@ -19,6 +25,11 @@ class PushRegistryDelegate: NSObject {
         
         pushRegistry.delegate = self
         pushRegistry.desiredPushTypes = [.voIP]
+        
+        if let raw = pushRegistry.pushToken(for: .voIP) {
+            let token = raw.reduce("") { $0 + String(format: "%02.2hhx", $1) }
+            pushTokenPublisher.send(token)
+        }
     }
 }
 
@@ -28,6 +39,9 @@ extension PushRegistryDelegate: PKPushRegistryDelegate {
         /*
          Store push credentials on the server for the active user.
          */
+        let token = pushCredentials.token.reduce("") { $0 + String(format: "%02.2hhx", $1) }
+        pushTokenPublisher.send(token)
+        print("pushRegistry didUpdate: \(token)\n")
     }
 
     func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
@@ -43,15 +57,18 @@ extension PushRegistryDelegate: PKPushRegistryDelegate {
             completion()
         }
 
-        guard type == .voIP,
-            let uuidString = payload.dictionaryPayload["UUID"] as? String,
-            let handle = payload.dictionaryPayload["handle"] as? String,
-            payload.dictionaryPayload["hasVideo"] != nil,
-            let uuid = UUID(uuidString: uuidString)
+        guard type == .voIP
+//            let uuidString = payload.dictionaryPayload["UUID"] as? String,
+//            let handle = payload.dictionaryPayload["handle"] as? String,
+//            payload.dictionaryPayload["hasVideo"] != nil,
+//            let uuid = UUID(uuidString: uuidString)
             else {
                 return
         }
-        
-        providerDelegate?.reportIncomingCall(uuid: uuid, handle: handle)
+        DispatchQueue.main.async {
+            self.providerDelegate?.reportIncomingCall(uuid: UUID(), handle: "0987654321") { _ in
+                SpeakerboxWatchApp.scheduleNotification()
+            }
+        }
     }
 }

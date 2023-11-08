@@ -7,6 +7,7 @@ The main view of the app.
 
 import SwiftUI
 
+
 struct MainView: View {
 
     @EnvironmentObject var callsController: SpeakerboxCallManager
@@ -16,10 +17,20 @@ struct MainView: View {
     var body: some View {
         NavigationView {
             Group {
-                if callsController.calls.isEmpty {
-                    EmptyCallsView()
-                } else {
-                    CallsListView()
+                VStack {
+                    Spacer(minLength: 40)
+                    VStack {
+                        Text("active : \(callsController.active ? "Y" : "N")")
+                        Text("deactive : \(callsController.deactive ? "Y" : "N")")
+                        Text("activationState : \(callsController.activationState)")
+                        Text("reachabilty: \(callsController.reachabilty ? "Y" : "N")")
+                    }.frame(height: 80)
+                    Spacer()
+                    if callsController.calls.isEmpty {
+                        EmptyCallsView()
+                    } else {
+                        CallsListView()
+                    }
                 }
             }
             .navigationBarTitle("Speakerbox", displayMode: .inline)
@@ -47,6 +58,12 @@ struct MainView: View {
                     .environmentObject(self.callsController)
             }
             .padding(10)
+            
+            Button {
+                callsController.sendWatch()
+            } label: {
+                Image(systemName: "dot.radiowaves.forward")
+            }
         }
     }
 

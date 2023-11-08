@@ -7,10 +7,58 @@ The manager of SpeakerboxCalls, which demonstrates using a CallKit CXCallControl
 
 import UIKit
 import CallKit
+import WatchConnectivity
+import UserNotifications
+import Combine
 
-final class SpeakerboxCallManager: NSObject, ObservableObject {
-
+final class SpeakerboxCallManager: NSObject, ObservableObject, WCSessionDelegate {
+    
+    static let NotificationIdentifier = "NotificationIdentifier"
+    
     let callController = CXCallController()
+    
+    @Published var active: Bool = false
+    @Published var deactive: Bool = true
+    @Published var activationState: Int = 0
+    @Published var reachabilty: Bool = false
+    
+    var cancelBag = Set<AnyCancellable>()
+    
+    override init() {
+        super.init()
+        WCSession.default.delegate = self
+        WCSession.default.activate()
+        
+        WCSession.default.publisher(for: \.activationState).receive(on: DispatchQueue.main).sink { value in
+            
+            switch value {
+            case .activated:
+                self.active = true
+                self.deactive = false
+            case .inactive:
+                self.active = false
+                self.deactive = false
+            case .notActivated:
+                self.active = false
+                self.deactive = true
+            default:
+                break
+            }
+            self.activationState = value.rawValue
+        }.store(in: &self.cancelBag)
+        
+        WCSession.default.publisher(for: \.isReachable).receive(on: DispatchQueue.main).sink { value in
+            self.reachabilty = value
+        }.store(in: &self.cancelBag)
+        
+#if !os(watchOS)
+        DispatchQueue.main.asyncAfter(deadline: .now()) {
+            print("<--- \(WCSession.default.isWatchAppInstalled) | \(WCSession.default.isPaired)")
+        }
+        
+#endif
+        
+    }
 
     // MARK: - Actions
 
@@ -96,5 +144,83 @@ final class SpeakerboxCallManager: NSObject, ObservableObject {
     func removeAllCalls() {
         calls.removeAll()
     }
+    
+    func sendWatch() {
+        
+        self.reachabilty = WCSession.default.isReachable
+        
+        UNUserNotificationCenter.current().getPendingNotificationRequests { request in
+            print("<--- PENDING : \(request.count)")
+        }
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        
+        let content = UNMutableNotificationContent()
+        content.title = "본체 본체 본체"
+        content.subtitle = "받아져라얍얍얍"
+        content.categoryIdentifier = SpeakerboxCallManager.NotificationIdentifier
+        content.sound = .default
+        
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: 0.1,
+            repeats: false)
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: trigger)
+        
+        UNUserNotificationCenter.current()
+            .add(request)
+        
+        print("<-- sendWatch notification: \(SpeakerboxCallManager.NotificationIdentifier)")
+        
+    }
 
+    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        DispatchQueue.main.async {
+            switch activationState {
+            case .activated:
+                self.active = true
+                self.deactive = false
+            case .inactive:
+                self.active = false
+                self.deactive = false
+            case .notActivated:
+                self.active = false
+                self.deactive = true
+            default:
+                break
+            }
+        }
+    }
+    
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        DispatchQueue.main.async {
+            print("<-- sessionReachabilityDidChange: \(session.isReachable)")
+            self.reachabilty = session.isReachable
+        }
+    }
+    
+#if !os(watchOS)
+    func sessionDidBecomeInactive(_ session: WCSession) {
+        self.active = false
+    }
+    
+    func sessionDidDeactivate(_ session: WCSession) {
+        self.deactive = true
+    }
+#endif
+    
+#if os(watchOS)
+    
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
+        print("<--- \(message)")
+        
+        SpeakerboxWatchApp.scheduleNotification()
+        
+        replyHandler(["Result": true])
+    }
+    
+#endif
+    
 }

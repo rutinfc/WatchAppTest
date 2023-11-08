@@ -20,6 +20,20 @@
                ReferencedContainer = "container:Speakerbox.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "E7FF8F2023E8E27A0073AF6B"
+               BuildableName = "Speakerbox.app"
+               BlueprintName = "Speakerbox"
+               ReferencedContainer = "container:Speakerbox.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
