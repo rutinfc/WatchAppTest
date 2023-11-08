@@ -109,13 +109,9 @@ struct SpeakerboxWatchApp: App {
 
 class AppDelegate: NSObject, WKApplicationDelegate {
     
-    var notiDelegate = NotiDelegate()
-    
     func applicationDidFinishLaunching() {
         print("<-- applicationDidFinishLaunching")
         WKApplication.shared().registerForRemoteNotifications()
-        
-        UNUserNotificationCenter.current().delegate = self.notiDelegate
     }
     
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
@@ -126,20 +122,6 @@ class AppDelegate: NSObject, WKApplicationDelegate {
         SpeakerboxWatchApp.scheduleNotification()
         completionHandler(.newData)
     }
-}
-
-class NotiDelegate: NSObject, UNUserNotificationCenterDelegate {
-    
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        print("<--- didReceive :  \(response)")
-        completionHandler()
-    }
-
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        print("<--- willPresent : \(notification)")
-        completionHandler([.sound,.badge])
-    }
-
 }
 
 struct NotificationViewModel {

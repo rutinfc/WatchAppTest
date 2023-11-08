@@ -10,10 +10,13 @@ import CallKit
 import WatchConnectivity
 import UserNotifications
 import Combine
+import OSLog
 
 final class SpeakerboxCallManager: NSObject, ObservableObject, WCSessionDelegate {
     
     static let NotificationIdentifier = "NotificationIdentifier"
+    
+    var notiDelegate = NotiDelegate()
     
     let callController = CXCallController()
     
@@ -28,6 +31,8 @@ final class SpeakerboxCallManager: NSObject, ObservableObject, WCSessionDelegate
         super.init()
         WCSession.default.delegate = self
         WCSession.default.activate()
+        
+        UNUserNotificationCenter.current().delegate = self.notiDelegate
         
         WCSession.default.publisher(for: \.activationState).receive(on: DispatchQueue.main).sink { value in
             
@@ -150,16 +155,16 @@ final class SpeakerboxCallManager: NSObject, ObservableObject, WCSessionDelegate
         self.reachabilty = WCSession.default.isReachable
         
         UNUserNotificationCenter.current().getPendingNotificationRequests { request in
-            print("<--- PENDING : \(request.count)")
+            LogD("<--- PENDING : \(request.count)")
         }
-        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+//        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+//        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         
         let content = UNMutableNotificationContent()
         content.title = "본체 본체 본체"
         content.subtitle = "받아져라얍얍얍"
         content.categoryIdentifier = SpeakerboxCallManager.NotificationIdentifier
-        content.sound = .default
+//        content.sound = .default
         
         let trigger = UNTimeIntervalNotificationTrigger(
             timeInterval: 0.1,
@@ -172,7 +177,7 @@ final class SpeakerboxCallManager: NSObject, ObservableObject, WCSessionDelegate
         UNUserNotificationCenter.current()
             .add(request)
         
-        print("<-- sendWatch notification: \(SpeakerboxCallManager.NotificationIdentifier)")
+        LogD("<-- sendWatch notification: \(SpeakerboxCallManager.NotificationIdentifier)")
         
     }
 
@@ -196,7 +201,7 @@ final class SpeakerboxCallManager: NSObject, ObservableObject, WCSessionDelegate
     
     func sessionReachabilityDidChange(_ session: WCSession) {
         DispatchQueue.main.async {
-            print("<-- sessionReachabilityDidChange: \(session.isReachable)")
+            LogD("<-- sessionReachabilityDidChange: \(session.isReachable)")
             self.reachabilty = session.isReachable
         }
     }
@@ -214,7 +219,7 @@ final class SpeakerboxCallManager: NSObject, ObservableObject, WCSessionDelegate
 #if os(watchOS)
     
     func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
-        print("<--- \(message)")
+        LogD("<--- \(message)")
         
         SpeakerboxWatchApp.scheduleNotification()
         
@@ -223,4 +228,29 @@ final class SpeakerboxCallManager: NSObject, ObservableObject, WCSessionDelegate
     
 #endif
     
+}
+
+class NotiDelegate: NSObject, UNUserNotificationCenterDelegate {
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        LogD("<--- didReceive :  \(response)")
+        completionHandler()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        LogD("<--- willPresent : \(notification.request.content.title) | \(notification.request.content.subtitle)")
+        completionHandler([.sound,.badge, .banner])
+    }
+
+}
+
+
+private struct WatchLog {
+    static let subsystem = "com.sktelecom.ai.connect"
+    static let logSystem = OSLog(subsystem: subsystem, category: "Default")
+}
+
+func LogD(_ msg: String) {
+    print(msg)
+    os_log("%{public}@", log: WatchLog.logSystem, type: .debug, msg)
 }
